@@ -12,17 +12,58 @@ class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
 
+  private cleanToken(token: string | null): string | null {
+    if (!token) return null;
+    
+    let clean = token.trim();
+    
+    if (clean.includes('\n')) {
+      clean = clean.split('\n')[0].trim();
+    }
+    
+    if (clean.includes('SUPABASE_ANON_KEY')) {
+      clean = clean.split('SUPABASE_ANON_KEY')[0].trim();
+    }
+    
+    if (clean.includes('Bearer ')) {
+      clean = clean.replace('Bearer ', '').trim();
+    }
+    
+    return clean || null;
+  }
+
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('token');
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        const cleaned = this.cleanToken(storedToken);
+        if (cleaned) {
+          this.token = cleaned;
+          localStorage.setItem('token', cleaned);
+        } else {
+          localStorage.removeItem('token');
+        }
+      }
     }
   }
 
   setToken(token: string) {
-    this.token = token;
+    if (!token || typeof token !== 'string') {
+      console.error('Invalid token provided');
+      return;
+    }
+    
+    const cleaned = this.cleanToken(token);
+    if (!cleaned) {
+      console.error('Token cleaning resulted in empty token');
+      return;
+    }
+    
+    this.token = cleaned;
+    
     if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
+      localStorage.setItem('token', cleaned);
     }
   }
 
@@ -452,3 +493,4 @@ export const caregiverApi = {
 
   unlinkChild: (childId: string) => api.delete<{ success: boolean; message: string }>(`/caregiver/unlink/${childId}`),
 };
+
