@@ -17,19 +17,32 @@ class ApiClient {
     
     let clean = token.trim();
     
+    // Remove newlines and take first line only
     if (clean.includes('\n')) {
       clean = clean.split('\n')[0].trim();
     }
     
+    // Handle case where token contains "SUPABASE_ANON_KEY=" (with or without space before)
+    // Split on "SUPABASE_ANON_KEY" and take the first part
     if (clean.includes('SUPABASE_ANON_KEY')) {
-      clean = clean.split('SUPABASE_ANON_KEY')[0].trim();
+      const parts = clean.split('SUPABASE_ANON_KEY');
+      clean = parts[0].trim();
     }
     
+    // Remove "Bearer " prefix if present
     if (clean.includes('Bearer ')) {
-      clean = clean.replace('Bearer ', '').trim();
+      clean = clean.replace(/Bearer\s+/gi, '').trim();
     }
     
-    return clean || null;
+    // Remove any remaining whitespace and validate it looks like a JWT
+    clean = clean.trim();
+    
+    // Basic JWT validation: should be three parts separated by dots
+    if (clean && clean.split('.').length === 3) {
+      return clean;
+    }
+    
+    return null;
   }
 
   constructor(baseUrl: string) {
@@ -143,7 +156,10 @@ class ApiClient {
     const headers: Record<string, string> = {};
 
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      const cleanToken = this.cleanToken(this.token);
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
     }
 
     try {
