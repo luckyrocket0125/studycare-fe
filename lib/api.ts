@@ -24,15 +24,15 @@ class ApiClient {
     
     // Handle case where token contains "SUPABASE_ANON_KEY=" (with or without space before)
     // Split on "SUPABASE_ANON_KEY" and take the first part
-    if (clean.includes('SUPABASE_ANON_KEY')) {
-      const parts = clean.split('SUPABASE_ANON_KEY');
-      clean = parts[0].trim();
-    }
+    // if (clean.includes('SUPABASE_ANON_KEY')) {
+    //   const parts = clean.split('SUPABASE_ANON_KEY');
+    //   clean = parts[0].trim();
+    // }
     
     // Remove "Bearer " prefix if present
-    if (clean.includes('Bearer ')) {
-      clean = clean.replace(/Bearer\s+/gi, '').trim();
-    }
+    // if (clean.includes('Bearer ')) {
+    //   clean = clean.replace(/Bearer\s+/gi, '').trim();
+    // }
     
     // Remove any remaining whitespace and validate it looks like a JWT
     clean = clean.trim();
