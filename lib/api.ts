@@ -85,7 +85,10 @@ class ApiClient {
     };
 
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      const cleanToken = this.cleanToken(this.token);
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
     }
 
     try {
@@ -98,6 +101,10 @@ class ApiClient {
 
       if (!response.ok) {
         throw new Error(data.error?.message || 'Request failed');
+      }
+
+      if (data.data && data.data.token && typeof data.data.token === 'string') {
+        data.data.token = this.cleanToken(data.data.token) || data.data.token;
       }
 
       return data;
