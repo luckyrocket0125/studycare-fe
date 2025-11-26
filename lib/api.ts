@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -17,37 +17,10 @@ class ApiClient {
     
     let clean = token.trim();
     
-<<<<<<< HEAD
-    // Remove newlines and take first line only
-=======
->>>>>>> UI/UX improve
     if (clean.includes('\n')) {
       clean = clean.split('\n')[0].trim();
     }
     
-<<<<<<< HEAD
-    // Handle case where token contains "SUPABASE_ANON_KEY=" (with or without space before)
-    // Split on "SUPABASE_ANON_KEY" and take the first part
-    if (clean.includes('SUPABASE_ANON_KEY')) {
-      const parts = clean.split('SUPABASE_ANON_KEY');
-      clean = parts[0].trim();
-    }
-    
-    // Remove "Bearer " prefix if present
-    if (clean.includes('Bearer ')) {
-      clean = clean.replace(/Bearer\s+/gi, '').trim();
-    }
-    
-    // Remove any remaining whitespace and validate it looks like a JWT
-    clean = clean.trim();
-    
-    // Basic JWT validation: should be three parts separated by dots
-    if (clean && clean.split('.').length === 3) {
-      return clean;
-    }
-    
-    return null;
-=======
     if (clean.includes('SUPABASE_ANON_KEY')) {
       clean = clean.split('SUPABASE_ANON_KEY')[0].trim();
     }
@@ -57,7 +30,6 @@ class ApiClient {
     }
     
     return clean || null;
->>>>>>> UI/UX improve
   }
 
   constructor(baseUrl: string) {
