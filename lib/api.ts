@@ -17,11 +17,15 @@ class ApiClient {
     
     let clean = token.trim();
     
+<<<<<<< HEAD
     // Remove newlines and take first line only
+=======
+>>>>>>> UI/UX improve
     if (clean.includes('\n')) {
       clean = clean.split('\n')[0].trim();
     }
     
+<<<<<<< HEAD
     // Handle case where token contains "SUPABASE_ANON_KEY=" (with or without space before)
     // Split on "SUPABASE_ANON_KEY" and take the first part
     if (clean.includes('SUPABASE_ANON_KEY')) {
@@ -43,6 +47,17 @@ class ApiClient {
     }
     
     return null;
+=======
+    if (clean.includes('SUPABASE_ANON_KEY')) {
+      clean = clean.split('SUPABASE_ANON_KEY')[0].trim();
+    }
+    
+    if (clean.includes('Bearer ')) {
+      clean = clean.replace('Bearer ', '').trim();
+    }
+    
+    return clean || null;
+>>>>>>> UI/UX improve
   }
 
   constructor(baseUrl: string) {
@@ -282,6 +297,11 @@ export interface ChatSession {
   session_type: string;
   subject?: string;
   created_at: string;
+  user?: {
+    id: string;
+    email: string;
+    full_name?: string;
+  };
 }
 
 export interface ChatMessage {
@@ -292,6 +312,11 @@ export interface ChatMessage {
   content: string;
   metadata?: Record<string, unknown>;
   created_at: string;
+  user?: {
+    id: string;
+    email: string;
+    full_name?: string;
+  };
 }
 
 export const studentApi = {
@@ -306,18 +331,46 @@ export const chatApi = {
     api.post<ChatSession>('/chat/session', data),
 
   sendMessage: (data: { sessionId: string; message: string; language?: string }) =>
-    api.post<{ response: string; message: ChatMessage }>('/chat/message', data),
+    api.post<{ response: string; message: ChatMessage; userMessage?: ChatMessage }>('/chat/message', data),
 
   getSession: (sessionId: string) =>
     api.get<{ session: ChatSession; messages: ChatMessage[] }>(`/chat/session/${sessionId}`),
 
   getSessions: () => api.get<ChatSession[]>('/chat/sessions'),
+
+  deleteSession: (sessionId: string) =>
+    api.delete<{ success: boolean; message: string }>(`/chat/session/${sessionId}`),
 };
 
-export const imageApi = {
-  upload: (formData: FormData) => api.postFormData<{ sessionId: string; explanation: string; ocrText: string; imageUrl: string }>('/image/upload', formData),
+export interface ImageUpload {
+  id: string;
+  session_id: string;
+  user_id: string;
+  file_url: string;
+  ocr_text: string | null;
+  explanation: string | null;
+  created_at: string;
+}
 
-  getAnalysis: (sessionId: string) => api.get<{ explanation: string; ocrText: string; imageUrl: string }>(`/image/${sessionId}`),
+export interface ImageAnalysisResult {
+  sessionId: string;
+  explanation: string;
+  ocrText: string;
+  imageUrl: string;
+  id?: string;
+  created_at?: string;
+}
+
+export const imageApi = {
+  upload: (formData: FormData) => api.postFormData<ImageAnalysisResult>('/image/upload', formData),
+
+  getAnalysis: (sessionId: string) => api.get<ImageAnalysisResult>(`/image/${sessionId}`),
+
+  getAllAnalyses: () => api.get<ImageUpload[]>('/image'),
+
+  askQuestion: (sessionId: string, question: string) => api.post<{ answer: string }>(`/image/${sessionId}/question`, { question }),
+
+  deleteAnalysis: (imageId: string) => api.delete<{ success: boolean; message: string }>(`/image/${imageId}`),
 };
 
 export interface VoiceTranscription {
@@ -364,6 +417,12 @@ export interface StudyPod {
   created_at: string;
   members?: PodMember[];
   memberCount?: number;
+  isMember?: boolean;
+  creator?: {
+    id: string;
+    email: string;
+    full_name?: string;
+  };
 }
 
 export interface PodMember {
