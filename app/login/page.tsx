@@ -41,8 +41,12 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg mb-4">
-            <span className="text-3xl">📚</span>
+          <div className="mx-auto h-20 w-20 mb-4 flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="StudyCare AI Logo" 
+              className="h-full w-full object-contain"
+            />
           </div>
           <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
             StudyCare AI
@@ -117,7 +121,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don&apos;t have an account?{' '}
+              Don't have an account?{' '}
               <Link href="/register" className="font-semibold text-blue-600 hover:text-blue-700 transition-colors">
                 Create one now
               </Link>

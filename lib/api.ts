@@ -143,10 +143,7 @@ class ApiClient {
     const headers: Record<string, string> = {};
 
     if (this.token) {
-      const cleanToken = this.cleanToken(this.token);
-      if (cleanToken) {
-        headers['Authorization'] = `Bearer ${cleanToken}`;
-      }
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
 
     try {
@@ -424,6 +421,27 @@ export interface PodMessage {
   };
 }
 
+export interface PodInvitation {
+  id: string;
+  pod_id: string;
+  invited_by: string;
+  invited_user_id: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+  updated_at: string;
+  pod?: StudyPod;
+  inviter?: {
+    id: string;
+    email: string;
+    full_name?: string;
+  };
+  invited_user?: {
+    id: string;
+    email: string;
+    full_name?: string;
+  };
+}
+
 export const podApi = {
   createPod: (data: { name: string }) => api.post<StudyPod>('/pods', data),
 
@@ -431,13 +449,25 @@ export const podApi = {
 
   getPod: (podId: string) => api.get<StudyPod>(`/pods/${podId}`),
 
-  joinPod: (podId: string) => api.post<PodMember>(`/pods/${podId}/join`, {}),
-
   leavePod: (podId: string) => api.post<{ success: boolean; message: string }>(`/pods/${podId}/leave`, {}),
+
+  getInvitations: () => api.get<PodInvitation[]>('/pods/invitations'),
+
+  sendInvitation: (podId: string, invitedUserId: string) => api.post<PodInvitation>(`/pods/${podId}/invite`, { invited_user_id: invitedUserId }),
+
+  acceptInvitation: (invitationId: string) => api.post<PodMember>(`/pods/invitations/${invitationId}/accept`, {}),
+
+  declineInvitation: (invitationId: string) => api.post<{ success: boolean; message: string }>(`/pods/invitations/${invitationId}/decline`, {}),
+
+  getSentInvitations: (podId: string) => api.get<PodInvitation[]>(`/pods/${podId}/invitations`),
+
+  getClassmates: (podId?: string) => api.get<Array<{ id: string; email: string; full_name?: string }>>(`/pods/classmates${podId ? `?podId=${podId}` : ''}`),
 
   sendMessage: (podId: string, content: string) => api.post<PodMessage>(`/pods/${podId}/messages`, { content }),
 
   getMessages: (podId: string, limit?: number) => api.get<PodMessage[]>(`/pods/${podId}/messages${limit ? `?limit=${limit}` : ''}`),
+
+  askAIHelp: (podId: string) => api.post<PodMessage>(`/pods/${podId}/ai-help`, {}),
 
   deletePod: (podId: string) => api.delete<{ success: boolean; message: string }>(`/pods/${podId}`),
 };
@@ -445,6 +475,7 @@ export const podApi = {
 export interface Note {
   id: string;
   user_id: string;
+  class_id?: string | null;
   title: string;
   content: string;
   ai_summary?: string;
@@ -452,6 +483,12 @@ export interface Note {
   tags?: string[];
   created_at: string;
   updated_at: string;
+  class?: {
+    id: string;
+    name: string;
+    class_code: string;
+    subject?: string;
+  };
 }
 
 export interface NoteSummary {
@@ -466,14 +503,14 @@ export interface NoteExplanation {
 }
 
 export const noteApi = {
-  createNote: (data: { title: string; content: string; tags?: string[] }) =>
+  createNote: (data: { title: string; content: string; tags?: string[]; class_id?: string | null }) =>
     api.post<Note>('/notes', data),
 
-  getNotes: () => api.get<Note[]>('/notes'),
+  getNotes: (classId?: string) => api.get<Note[]>(`/notes${classId ? `?class_id=${classId}` : ''}`),
 
   getNote: (noteId: string) => api.get<Note>(`/notes/${noteId}`),
 
-  updateNote: (noteId: string, data: { title?: string; content?: string; tags?: string[] }) =>
+  updateNote: (noteId: string, data: { title?: string; content?: string; tags?: string[]; class_id?: string | null }) =>
     api.put<Note>(`/notes/${noteId}`, data),
 
   deleteNote: (noteId: string) => api.delete<{ success: boolean; message: string }>(`/notes/${noteId}`),

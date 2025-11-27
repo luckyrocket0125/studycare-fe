@@ -102,8 +102,12 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-                <span className="text-xl">📚</span>
+              <div className="h-10 w-10 flex items-center justify-center">
+                <img 
+                  src="/logo.png" 
+                  alt="StudyCare AI Logo" 
+                  className="h-full w-full object-contain"
+                />
               </div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 StudyCare AI

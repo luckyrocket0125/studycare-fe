@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { studentApi, authApi, api, chatApi, imageApi, voiceApi, podApi, noteApi, symptomApi, StudentClass, ChatSession, ChatMessage, VoiceChatResponse, StudyPod, PodMessage, Note, NoteSummary, NoteExplanation, SymptomGuidance, SymptomCheck, ImageUpload } from '@/lib/api';
+import { studentApi, authApi, api, chatApi, imageApi, voiceApi, podApi, noteApi, symptomApi, StudentClass, ChatSession, ChatMessage, VoiceChatResponse, StudyPod, PodMessage, PodInvitation, Note, NoteSummary, NoteExplanation, SymptomGuidance, SymptomCheck, ImageUpload } from '@/lib/api';
 
 export default function StudentPage() {
   const router = useRouter();
@@ -31,10 +31,17 @@ export default function StudentPage() {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [playingAudio, setPlayingAudio] = useState(false);
   const [pods, setPods] = useState<StudyPod[]>([]);
+  const [invitations, setInvitations] = useState<PodInvitation[]>([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [classmates, setClassmates] = useState<Array<{ id: string; email: string; full_name?: string }>>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedPod, setSelectedPod] = useState<StudyPod | null>(null);
   const [podMessages, setPodMessages] = useState<PodMessage[]>([]);
   const [podMessageInput, setPodMessageInput] = useState('');
+  const [podViewMode, setPodViewMode] = useState<'my-pods' | 'invitations'>('my-pods');
   const [sendingPodMessage, setSendingPodMessage] = useState(false);
+  const [askingAIHelp, setAskingAIHelp] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [newPodName, setNewPodName] = useState('');
   const [showCreatePodModal, setShowCreatePodModal] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -42,6 +49,8 @@ export default function StudentPage() {
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteTags, setNoteTags] = useState<string[]>([]);
+  const [noteClassId, setNoteClassId] = useState<string | null>(null);
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string | null>(null);
   const [showCreateNoteModal, setShowCreateNoteModal] = useState(false);
   const [noteSummary, setNoteSummary] = useState<NoteSummary | null>(null);
   const [noteExplanation, setNoteExplanation] = useState<NoteExplanation | null>(null);
@@ -54,6 +63,7 @@ export default function StudentPage() {
   const [user, setUser] = useState<{ id: string; simplified_mode: boolean } | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showDeletePodDialog, setShowDeletePodDialog] = useState(false);
   const [podToDelete, setPodToDelete] = useState<string | null>(null);
   const [showDeleteImageDialog, setShowDeleteImageDialog] = useState(false);
@@ -133,7 +143,7 @@ export default function StudentPage() {
       console.error('Failed to load image history:', imagesResponse.error);
     }
 
-    const notesResponse = await noteApi.getNotes();
+    const notesResponse = await noteApi.getNotes(selectedClassFilter || undefined);
     if (notesResponse.success && notesResponse.data) {
       setNotes(notesResponse.data);
     } else if (notesResponse.error) {
@@ -465,10 +475,38 @@ export default function StudentPage() {
     const response = await podApi.getMessages(pod.id, 50);
     if (response.success && response.data) {
       setPodMessages(response.data);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     } else {
       setError(response.error?.message || 'Failed to load messages');
     }
   };
+
+  useEffect(() => {
+    if (podMessages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [podMessages]);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showEmojiPicker && !target.closest('.emoji-picker-container') && !target.closest('.emoji-button')) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showEmojiPicker]);
 
   const handleSendPodMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -484,6 +522,11 @@ export default function StudentPage() {
       user_id: user?.id || '',
       content: messageContent,
       created_at: new Date().toISOString(),
+      user: {
+        id: user?.id || '',
+        email: '',
+        full_name: user?.id || 'You',
+      },
     };
 
     setPodMessages((prev) => [...prev, tempMessage]);
@@ -497,6 +540,24 @@ export default function StudentPage() {
           ...prev.filter(m => m.id !== 'temp'),
           response.data!
         ]);
+
+        // If message contains "@StudyCare help", wait for AI response
+        if (messageContent.toLowerCase().includes('@studycare help') || messageContent.toLowerCase().includes('@studycare')) {
+          // AI response will come as a separate message automatically - refresh after a delay
+          setTimeout(async () => {
+            const messagesResponse = await podApi.getMessages(selectedPod.id, 50);
+            if (messagesResponse.success && messagesResponse.data) {
+              setPodMessages(messagesResponse.data);
+              setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }
+          }, 3000);
+        } else {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
 
         if (selectedPod && !selectedPod.isMember) {
           const podResponse = await podApi.getPod(selectedPod.id);
@@ -516,6 +577,30 @@ export default function StudentPage() {
       setPodMessages((prev) => prev.filter(m => m.id !== 'temp'));
     } finally {
       setSendingPodMessage(false);
+    }
+  };
+
+  const handleAskAIHelp = async () => {
+    if (!selectedPod || askingAIHelp) return;
+
+    setAskingAIHelp(true);
+    setError('');
+
+    try {
+      const response = await podApi.askAIHelp(selectedPod.id);
+
+      if (response.success && response.data) {
+        setPodMessages((prev) => [...prev, response.data!]);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } else {
+        setError(response.error?.message || 'Failed to get AI help');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to get AI help');
+    } finally {
+      setAskingAIHelp(false);
     }
   };
 
@@ -553,17 +638,62 @@ export default function StudentPage() {
     setPodToDelete(null);
   };
 
-  const handleJoinPod = async (podId: string) => {
+  const loadInvitations = async () => {
+    setLoadingInvitations(true);
+    const response = await podApi.getInvitations();
+    if (response.success && response.data) {
+      setInvitations(response.data);
+    } else {
+      setError(response.error?.message || 'Failed to load invitations');
+    }
+    setLoadingInvitations(false);
+  };
+
+  const loadClassmates = async (podId?: string) => {
+    const response = await podApi.getClassmates(podId);
+    if (response.success && response.data) {
+      setClassmates(response.data);
+    }
+  };
+
+  const handleAcceptInvitation = async (invitationId: string) => {
     setError('');
     setSuccess('');
 
-    const response = await podApi.joinPod(podId);
+    const response = await podApi.acceptInvitation(invitationId);
 
     if (response.success) {
       setSuccess('Joined study pod successfully!');
+      loadInvitations();
       loadData();
     } else {
-      setError(response.error?.message || 'Failed to join pod');
+      setError(response.error?.message || 'Failed to accept invitation');
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId: string) => {
+    setError('');
+    const response = await podApi.declineInvitation(invitationId);
+    if (response.success) {
+      loadInvitations();
+    } else {
+      setError(response.error?.message || 'Failed to decline invitation');
+    }
+  };
+
+  const handleSendInvitation = async (invitedUserId: string) => {
+    if (!selectedPod) return;
+
+    setError('');
+    setSuccess('');
+
+    const response = await podApi.sendInvitation(selectedPod.id, invitedUserId);
+
+    if (response.success) {
+      setSuccess('Invitation sent successfully!');
+      setShowInviteModal(false);
+    } else {
+      setError(response.error?.message || 'Failed to send invitation');
     }
   };
 
@@ -576,6 +706,7 @@ export default function StudentPage() {
       title: noteTitle,
       content: noteContent,
       tags: noteTags,
+      class_id: noteClassId || null,
     });
 
     if (response.success && response.data) {
@@ -583,6 +714,7 @@ export default function StudentPage() {
       setNoteTitle('');
       setNoteContent('');
       setNoteTags([]);
+      setNoteClassId(null);
       setShowCreateNoteModal(false);
       loadData();
     } else {
@@ -592,6 +724,10 @@ export default function StudentPage() {
 
   const handleSelectNote = async (note: Note) => {
     setSelectedNote(note);
+    setNoteTitle(note.title);
+    setNoteContent(note.content);
+    setNoteTags(note.tags || []);
+    setNoteClassId(note.class_id || null);
     setNoteSummary(null);
     setNoteExplanation(null);
     setError('');
@@ -608,6 +744,7 @@ export default function StudentPage() {
       title: noteTitle || selectedNote.title,
       content: noteContent || selectedNote.content,
       tags: noteTags.length > 0 ? noteTags : selectedNote.tags,
+      class_id: noteClassId !== undefined ? noteClassId : selectedNote.class_id,
     });
 
     if (response.success && response.data) {
@@ -729,7 +866,13 @@ export default function StudentPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <div className="text-center">
-          <div className="text-6xl mb-4 animate-bounce">📚</div>
+          <div className="h-24 w-24 mx-auto mb-4 animate-bounce">
+            <img 
+              src="/logo.png" 
+              alt="StudyCare AI Logo" 
+              className="h-full w-full object-contain"
+            />
+          </div>
           <div className="text-xl font-semibold text-gray-700">Loading your dashboard...</div>
         </div>
       </div>
@@ -742,8 +885,12 @@ export default function StudentPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
-                  <span className="text-xl">🎓</span>
+                <div className="h-10 w-10 flex items-center justify-center">
+                  <img 
+                    src="/logo.png" 
+                    alt="StudyCare AI Logo" 
+                    className="h-full w-full object-contain"
+                  />
                 </div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   StudyCare AI
@@ -919,7 +1066,7 @@ export default function StudentPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">My Classes</h2>
-                    <p className="text-sm text-gray-600">Classes you're enrolled in</p>
+                    <p className="text-sm text-gray-600">Classes you are enrolled in</p>
                   </div>
                 </div>
                 <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-bold">
@@ -1474,68 +1621,200 @@ export default function StudentPage() {
                   </div>
                 </div>
               )}
+              {showInviteModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in">
+                  <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <span>📬</span>
+                      <span>Invite Classmate</span>
+                    </h3>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select a classmate to invite
+                      </label>
+                      <div className="max-h-60 overflow-y-auto space-y-2">
+                        {classmates.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">No classmates found</p>
+                        ) : (
+                          classmates.map((classmate) => (
+                            <button
+                              key={classmate.id}
+                              onClick={() => handleSendInvitation(classmate.id)}
+                              className="w-full text-left p-3 rounded-lg hover:bg-gray-100 transition-colors border border-gray-200"
+                            >
+                              <div className="font-medium text-gray-900">
+                                {classmate.full_name || classmate.email}
+                              </div>
+                              {classmate.full_name && (
+                                <div className="text-xs text-gray-500">{classmate.email}</div>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowInviteModal(false)}
+                      className="w-full bg-gray-200 text-gray-700 px-4 py-2.5 rounded-xl hover:bg-gray-300 transition-all font-semibold"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-5 border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-gray-900">Study Pods</h3>
                   <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
-                    {pods.length}
+                    {podViewMode === 'my-pods' ? pods.length : invitations.length}
                   </span>
                 </div>
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => {
+                      setPodViewMode('my-pods');
+                      setSelectedPod(null);
+                      setPodMessages([]);
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      podViewMode === 'my-pods'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    My Pods
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setPodViewMode('invitations');
+                      setSelectedPod(null);
+                      setPodMessages([]);
+                      await loadInvitations();
+                    }}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                      podViewMode === 'invitations'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Invitations {invitations.length > 0 && `(${invitations.length})`}
+                  </button>
+                </div>
                 <div className="space-y-2">
-                  {pods.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="text-4xl mb-2">👥</div>
-                      <p className="text-gray-500 text-sm font-medium">No study pods yet</p>
-                    </div>
-                  ) : (
-                    pods.map((pod) => (
-                      <div
-                        key={pod.id}
-                        onClick={() => handleSelectPod(pod)}
-                        className={`p-4 rounded-xl cursor-pointer transition-all duration-200 relative group ${
-                          selectedPod?.id === pod.id
-                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-500 shadow-md transform scale-[1.02]'
-                            : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent hover:border-gray-200 hover:shadow-md'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm text-gray-900 mb-1 truncate">
-                              {pod.name}
-                            </div>
-                            <div className="text-xs text-gray-500 space-y-0.5">
-                              <div className="flex items-center gap-1">
-                                <span>👥</span>
-                                <span>{pod.memberCount || 0} member{pod.memberCount !== 1 ? 's' : ''}</span>
-                                {pod.isMember && (
-                                  <span className="ml-1 text-blue-600 font-semibold">(Joined)</span>
+                  {podViewMode === 'my-pods' ? (
+                    pods.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="text-4xl mb-2">👥</div>
+                        <p className="text-gray-500 text-sm font-medium">No study pods yet</p>
+                        <p className="text-xs text-gray-400 mt-1">Create one or browse to join</p>
+                      </div>
+                    ) : (
+                      pods.map((pod) => (
+                        <div
+                          key={pod.id}
+                          onClick={() => handleSelectPod(pod)}
+                          className={`p-4 rounded-xl cursor-pointer transition-all duration-200 relative group ${
+                            selectedPod?.id === pod.id
+                              ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-500 shadow-md transform scale-[1.02]'
+                              : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent hover:border-gray-200 hover:shadow-md'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm text-gray-900 mb-1 truncate">
+                                {pod.name}
+                              </div>
+                              <div className="text-xs text-gray-500 space-y-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span>👥</span>
+                                  <span>{pod.memberCount || 0} member{pod.memberCount !== 1 ? 's' : ''}</span>
+                                  {pod.isMember && (
+                                    <span className="ml-1 text-blue-600 font-semibold">(Joined)</span>
+                                  )}
+                                </div>
+                                {pod.creator && (
+                                  <div className="flex items-center gap-1">
+                                    <span>👤</span>
+                                    <span className="truncate">
+                                      {pod.creator.full_name || pod.creator.email}
+                                      {user && pod.created_by === user.id && (
+                                        <span className="ml-1 text-blue-600 font-semibold">(You)</span>
+                                      )}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
-                              {pod.creator && (
-                                <div className="flex items-center gap-1">
-                                  <span>👤</span>
-                                  <span className="truncate">
-                                    {pod.creator.full_name || pod.creator.email}
-                                    {user && pod.created_by === user.id && (
-                                      <span className="ml-1 text-blue-600 font-semibold">(You)</span>
-                                    )}
-                                  </span>
+                            </div>
+                            {user && pod.created_by === user.id && (
+                              <button
+                                onClick={(e) => handleDeletePod(pod.id, e)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg flex-shrink-0"
+                                title="Delete pod"
+                              >
+                                <span className="text-sm">🗑️</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )
+                  ) : (
+                    loadingInvitations ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent mx-auto mb-2"></div>
+                        <p className="text-gray-500 text-sm">Loading invitations...</p>
+                      </div>
+                    ) : invitations.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="text-4xl mb-2">📬</div>
+                        <p className="text-gray-500 text-sm font-medium">No pending invitations</p>
+                        <p className="text-xs text-gray-400 mt-1">You will see invitations here when someone invites you to a pod</p>
+                      </div>
+                    ) : (
+                      invitations.map((invitation) => (
+                        <div
+                          key={invitation.id}
+                          className="p-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm text-gray-900 mb-1">
+                                {invitation.pod?.name || 'Study Pod'}
+                              </div>
+                              <div className="text-xs text-gray-600 space-y-0.5">
+                                {invitation.inviter && (
+                                  <div className="flex items-center gap-1">
+                                    <span>👤</span>
+                                    <span className="truncate">
+                                      Invited by: {invitation.inviter.full_name || invitation.inviter.email}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="text-gray-500">
+                                  {new Date(invitation.created_at).toLocaleDateString()}
                                 </div>
-                              )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2 flex-shrink-0">
+                              <button
+                                onClick={() => handleAcceptInvitation(invitation.id)}
+                                className="px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 rounded-lg transition-all"
+                                title="Accept invitation"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleDeclineInvitation(invitation.id)}
+                                className="px-3 py-1.5 text-xs font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-lg transition-all"
+                                title="Decline invitation"
+                              >
+                                Decline
+                              </button>
                             </div>
                           </div>
-                          {user && pod.created_by === user.id && (
-                            <button
-                              onClick={(e) => handleDeletePod(pod.id, e)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg flex-shrink-0"
-                              title="Delete pod"
-                            >
-                              <span className="text-sm">🗑️</span>
-                            </button>
-                          )}
                         </div>
-                      </div>
-                    ))
+                      ))
+                    )
                   )}
                 </div>
               </div>
@@ -1562,90 +1841,185 @@ export default function StudentPage() {
                             </span>
                           </div>
                         )}
+                        <div className="text-xs text-gray-600 mt-1 flex items-center gap-1">
+                          <span>👥</span>
+                          <span>{selectedPod.memberCount || 0} member{selectedPod.memberCount !== 1 ? 's' : ''}</span>
+                        </div>
                       </div>
-                      {user && selectedPod.created_by === user.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeletePod(selectedPod.id, e);
-                          }}
-                          className="px-3 py-1.5 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
-                          title="Delete this pod"
-                        >
-                          🗑️ Delete
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {user && selectedPod.created_by === user.id && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowInviteModal(true);
+                                loadClassmates(selectedPod.id);
+                              }}
+                              className="px-4 py-2 text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 rounded-lg transition-all shadow-md"
+                              title="Invite classmates"
+                            >
+                              ➕ Invite
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePod(selectedPod.id, e);
+                              }}
+                              className="px-3 py-1.5 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all"
+                              title="Delete this pod"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-white to-gray-50">
-                      {podMessages.length === 0 ? (
+                    <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-gradient-to-b from-white to-gray-50">
+                      {!selectedPod.isMember ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <div className="text-5xl mb-3">🔒</div>
+                            <p className="text-gray-500 font-medium mb-2">You are not a member of this pod</p>
+                            <p className="text-sm text-gray-400 mb-4">You need an invitation from the pod owner to join</p>
+                          </div>
+                        </div>
+                      ) : podMessages.length === 0 ? (
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center">
                             <div className="text-5xl mb-3">💬</div>
                             <p className="text-gray-500 font-medium">Start the conversation!</p>
-                            {!selectedPod.isMember && (
-                              <p className="text-xs text-gray-400 mt-2">You'll be auto-joined when you send a message</p>
-                            )}
                           </div>
                         </div>
                       ) : (
-                        podMessages.map((msg) => (
-                          <div key={msg.id} className="space-y-2">
-                            <div className="flex flex-col">
-                              <div className="text-xs text-gray-600 mb-1 px-2 flex items-center gap-1">
-                                <span>👤</span>
-                                <span>
-                                  {msg.user?.full_name || msg.user?.email || 'Unknown'}
-                                  {user && msg.user_id === user.id && (
-                                    <span className="ml-1 text-blue-600 font-semibold">(You)</span>
+                        podMessages.map((msg) => {
+                          const isAIMessage = msg.user?.id === 'ai' || msg.user?.full_name === 'StudyCare AI';
+                          const isMyMessage = user && msg.user_id === user.id && !isAIMessage;
+                          
+                          return (
+                            <div
+                              key={msg.id}
+                              className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
+                            >
+                              <div className={`max-w-[75%] ${isMyMessage ? 'items-end' : 'items-start'} flex flex-col`}>
+                                <div className="text-xs text-gray-600 mb-1 px-2 flex items-center gap-1">
+                                  {isAIMessage ? (
+                                    <>
+                                      <span>🤖</span>
+                                      <span className="font-semibold text-blue-600">StudyCare AI</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>👤</span>
+                                      <span className="font-medium">
+                                        {msg.user?.full_name || msg.user?.email || 'Unknown'}
+                                        {isMyMessage && <span className="ml-1 text-blue-600">(You)</span>}
+                                      </span>
+                                    </>
                                   )}
-                                </span>
-                              </div>
-                              <div className="bg-gray-100 rounded-xl p-3 text-gray-800 shadow-sm">
-                                {msg.content}
-                              </div>
-                              <div className="text-xs text-gray-500 px-2 mt-1">
-                                {new Date(msg.created_at).toLocaleTimeString()}
+                                  <span className="text-gray-400 ml-2">
+                                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                                <div
+                                  className={`rounded-2xl p-3 shadow-sm ${
+                                    isAIMessage
+                                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 text-gray-800'
+                                      : isMyMessage
+                                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
+                                      : 'bg-gray-100 text-gray-800'
+                                  }`}
+                                  style={{ wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
+                                >
+                                  {msg.content}
+                                </div>
                               </div>
                             </div>
-                            {msg.ai_guidance && (
-                              <div className="ml-4 pl-4 border-l-2 border-blue-300">
-                                <div className="text-xs font-medium text-blue-600 mb-1 flex items-center gap-1">
-                                  <span>🤖</span>
-                                  <span>AI Guidance</span>
-                                </div>
-                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-3 text-gray-800 text-sm">
-                                  {msg.ai_guidance}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))
+                          );
+                        })
                       )}
+                      <div ref={messagesEndRef} />
                     </div>
-                    <form onSubmit={handleSendPodMessage} className="p-5 border-t border-gray-200 bg-white rounded-b-2xl flex gap-3">
-                      <input
-                        type="text"
-                        value={podMessageInput}
-                        onChange={(e) => setPodMessageInput(e.target.value)}
-                        placeholder={selectedPod.isMember ? "Type your message..." : "Type to join and send a message..."}
-                        className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
-                        disabled={sendingPodMessage}
-                      />
-                      <button
-                        type="submit"
-                        disabled={sendingPodMessage || !podMessageInput.trim()}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        {sendingPodMessage ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                            <span>Sending...</span>
-                          </>
-                        ) : (
-                          'Send'
-                        )}
-                      </button>
-                    </form>
+                    <div className="p-5 border-t border-gray-200 bg-white rounded-b-2xl">
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={handleAskAIHelp}
+                          disabled={askingAIHelp || !selectedPod.isMember}
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+                        >
+                          {askingAIHelp ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                              <span>Asking AI...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>🤖</span>
+                              <span>Ask StudyCare AI</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <form onSubmit={handleSendPodMessage} className="flex gap-2 relative">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={podMessageInput}
+                            onChange={(e) => setPodMessageInput(e.target.value)}
+                            placeholder={selectedPod.isMember ? "Type your message... (or type '@StudyCare help' to ask AI)" : "Type to join and send a message..."}
+                            className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none"
+                            disabled={sendingPodMessage || !selectedPod.isMember}
+                            onFocus={() => setShowEmojiPicker(false)}
+                          />
+                          {selectedPod.isMember && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setShowEmojiPicker(!showEmojiPicker);
+                              }}
+                              className="emoji-button absolute right-2 top-1/2 -translate-y-1/2 p-2 text-xl hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Add emoji"
+                            >
+                              😊
+                            </button>
+                          )}
+                          {showEmojiPicker && selectedPod.isMember && (
+                            <div className="emoji-picker-container absolute bottom-full right-0 mb-2 bg-white border-2 border-gray-200 rounded-xl shadow-2xl p-4 w-80 max-h-64 overflow-y-auto z-50">
+                              <div className="grid grid-cols-8 gap-2">
+                                {['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '😶‍🌫️', '😵', '😵‍💫', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸', '⏯', '⏹', '⏺', '⏭', '⏮', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '💲', '💱', '™️', '©️', '®️', '〰️', '➰', '➿', '🔚', '🔙', '🔛', '🔜', '🔝', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇', '🔉', '🔊', '🔔', '🔕', '📣', '📢', '💬', '💭', '🗯', '♠️', '♣️', '♥️', '♦️', '🃏', '🎴', '🀄', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛', '🕜', '🕝', '🕞', '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦', '🕧'].map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => {
+                                      setPodMessageInput(prev => prev + emoji);
+                                      setShowEmojiPicker(false);
+                                    }}
+                                    className="text-2xl hover:bg-gray-100 rounded p-1 transition-colors"
+                                    title={emoji}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={sendingPodMessage || !podMessageInput.trim() || !selectedPod.isMember}
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {sendingPodMessage ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                              <span>Sending...</span>
+                            </>
+                          ) : (
+                            'Send'
+                          )}
+                        </button>
+                      </form>
+                    </div>
                   </>
                 ) : (
                   <div className="flex-1 flex items-center justify-center text-gray-500">
@@ -1672,17 +2046,55 @@ export default function StudentPage() {
                       setNoteTitle('');
                       setNoteContent('');
                       setNoteTags([]);
+                      setNoteClassId(null);
                     }}
                     className="text-blue-600 hover:text-blue-700 text-sm"
                   >
                     + New Note
                   </button>
                 </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filter by Class
+                  </label>
+                  <select
+                    value={selectedClassFilter || ''}
+                    onChange={(e) => {
+                      setSelectedClassFilter(e.target.value || null);
+                      loadData();
+                    }}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All Notes</option>
+                    {classes.map((cls) => (
+                      <option key={cls.class?.id} value={cls.class?.id}>
+                        {cls.class?.name} {cls.class?.subject ? `(${cls.class.subject})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 {showCreateNoteModal && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                       <h3 className="text-xl font-bold mb-4">Create New Note</h3>
                       <form onSubmit={handleCreateNote}>
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Class (Optional)
+                          </label>
+                          <select
+                            value={noteClassId || ''}
+                            onChange={(e) => setNoteClassId(e.target.value || null)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">No class (General note)</option>
+                            {classes.map((cls) => (
+                              <option key={cls.class?.id} value={cls.class?.id}>
+                                {cls.class?.name} {cls.class?.subject ? `(${cls.class.subject})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         <div className="mb-4">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Title
@@ -1718,7 +2130,10 @@ export default function StudentPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setShowCreateNoteModal(false)}
+                            onClick={() => {
+                              setShowCreateNoteModal(false);
+                              setNoteClassId(null);
+                            }}
                             className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
                           >
                             Cancel
@@ -1748,6 +2163,11 @@ export default function StudentPage() {
                         }`}
                       >
                         <div className="font-medium text-gray-800">{note.title}</div>
+                        {note.class && (
+                          <div className="text-xs text-blue-600 font-medium mt-1">
+                            📚 {note.class.name} {note.class.subject ? `(${note.class.subject})` : ''}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-600 mt-1">
                           {new Date(note.updated_at).toLocaleDateString()}
                         </div>
@@ -1794,6 +2214,23 @@ export default function StudentPage() {
                           Delete
                         </button>
                       </div>
+                    </div>
+                    <div className="mb-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Class
+                      </label>
+                      <select
+                        value={noteClassId || ''}
+                        onChange={(e) => setNoteClassId(e.target.value || null)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">No class (General note)</option>
+                        {classes.map((cls) => (
+                          <option key={cls.class?.id} value={cls.class?.id}>
+                            {cls.class?.name} {cls.class?.subject ? `(${cls.class.subject})` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <textarea
                       value={noteContent}
