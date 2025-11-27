@@ -477,18 +477,46 @@ export default function StudentPage() {
     setSendingPodMessage(true);
     setError('');
 
-    const response = await podApi.sendMessage(selectedPod.id, podMessageInput);
+    const messageContent = podMessageInput;
+    const tempMessage: PodMessage = {
+      id: 'temp',
+      pod_id: selectedPod.id,
+      user_id: user?.id || '',
+      content: messageContent,
+      created_at: new Date().toISOString(),
+    };
 
-    if (response.success && response.data) {
-      setPodMessages((prev) => [...prev, response.data!]);
-      setPodMessageInput('');
-      // Reload pod data to update membership status
-      loadData();
-    } else {
-      setError(response.error?.message || 'Failed to send message');
+    setPodMessages((prev) => [...prev, tempMessage]);
+    setPodMessageInput('');
+
+    try {
+      const response = await podApi.sendMessage(selectedPod.id, messageContent);
+
+      if (response.success && response.data) {
+        setPodMessages((prev) => [
+          ...prev.filter(m => m.id !== 'temp'),
+          response.data!
+        ]);
+
+        if (selectedPod && !selectedPod.isMember) {
+          const podResponse = await podApi.getPod(selectedPod.id);
+          if (podResponse.success && podResponse.data) {
+            setSelectedPod(podResponse.data);
+            setPods((prev) => prev.map(p => 
+              p.id === selectedPod.id ? podResponse.data! : p
+            ));
+          }
+        }
+      } else {
+        setError(response.error?.message || 'Failed to send message');
+        setPodMessages((prev) => prev.filter(m => m.id !== 'temp'));
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send message');
+      setPodMessages((prev) => prev.filter(m => m.id !== 'temp'));
+    } finally {
+      setSendingPodMessage(false);
     }
-
-    setSendingPodMessage(false);
   };
 
   const handleDeletePod = async (podId: string, e: React.MouseEvent) => {
@@ -891,7 +919,7 @@ export default function StudentPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">My Classes</h2>
-                    <p className="text-sm text-gray-600">Classes you are enrolled in</p>
+                    <p className="text-sm text-gray-600">Classes you're enrolled in</p>
                   </div>
                 </div>
                 <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-bold">
@@ -1555,7 +1583,7 @@ export default function StudentPage() {
                             <div className="text-5xl mb-3">💬</div>
                             <p className="text-gray-500 font-medium">Start the conversation!</p>
                             {!selectedPod.isMember && (
-                              <p className="text-xs text-gray-400 mt-2">You will be auto-joined when you send a message</p>
+                              <p className="text-xs text-gray-400 mt-2">You'll be auto-joined when you send a message</p>
                             )}
                           </div>
                         </div>
@@ -1593,13 +1621,6 @@ export default function StudentPage() {
                           </div>
                         ))
                       )}
-                      {sendingPodMessage && (
-                        <div className="flex justify-start">
-                          <div className="max-w-[70%] p-3 rounded-xl bg-gray-200 text-gray-800 animate-pulse shadow-sm">
-                            Sending...
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <form onSubmit={handleSendPodMessage} className="p-5 border-t border-gray-200 bg-white rounded-b-2xl flex gap-3">
                       <input
@@ -1613,9 +1634,16 @@ export default function StudentPage() {
                       <button
                         type="submit"
                         disabled={sendingPodMessage || !podMessageInput.trim()}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-3 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
-                        {sendingPodMessage ? 'Sending...' : 'Send'}
+                        {sendingPodMessage ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                            <span>Sending...</span>
+                          </>
+                        ) : (
+                          'Send'
+                        )}
                       </button>
                     </form>
                   </>
