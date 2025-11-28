@@ -112,7 +112,7 @@ export default function CaregiverPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-pink-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-blue-50">
       <nav className="bg-white/80 backdrop-blur-md shadow-lg border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -124,7 +124,7 @@ export default function CaregiverPage() {
                   className="h-full w-full object-contain"
                 />
               </div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-800 to-blue-900 bg-clip-text text-transparent">
                 StudyCare AI
               </h1>
               <span className="text-sm text-gray-500 font-medium">Caregiver Dashboard</span>
@@ -160,7 +160,7 @@ export default function CaregiverPage() {
           </div>
           <button
             onClick={() => setShowLinkModal(true)}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold flex items-center gap-2"
+            className="bg-gradient-to-r from-blue-800 to-blue-900 text-white px-6 py-3 rounded-xl hover:from-blue-900 hover:to-blue-950 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold flex items-center gap-2"
           >
             <span className="text-lg">+</span>
             <span>Link Child</span>
@@ -171,7 +171,7 @@ export default function CaregiverPage() {
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border border-gray-100 animate-fade-in">
               <div className="flex items-center gap-3 mb-6">
-                <div className="h-12 w-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                <div className="h-12 w-12 bg-gradient-to-br from-blue-800 to-blue-900 rounded-xl flex items-center justify-center">
                   <span className="text-2xl">🔗</span>
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900">Link Child Account</h3>
@@ -189,7 +189,7 @@ export default function CaregiverPage() {
                       type="email"
                       value={childEmail}
                       onChange={(e) => setChildEmail(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all outline-none"
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-800 focus:border-blue-800 transition-all outline-none"
                       placeholder="child@example.com"
                       required
                     />
@@ -202,7 +202,7 @@ export default function CaregiverPage() {
                 <div className="flex gap-3">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-3 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-semibold shadow-lg hover:shadow-xl"
+                    className="flex-1 bg-gradient-to-r from-blue-800 to-blue-900 text-white px-4 py-3 rounded-xl hover:from-blue-900 hover:to-blue-950 transition-all font-semibold shadow-lg hover:shadow-xl"
                   >
                     Link Account
                   </button>
@@ -227,7 +227,7 @@ export default function CaregiverPage() {
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-100">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="font-bold text-lg text-gray-900">Children</h3>
-                <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-semibold">
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
                   {children.length}
                 </span>
               </div>
@@ -245,28 +245,28 @@ export default function CaregiverPage() {
                       onClick={() => handleSelectChild(child)}
                       className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
                         selectedChild?.id === child.id
-                          ? 'bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-500 shadow-md transform scale-[1.02]'
+                          ? 'bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-800 shadow-md transform scale-[1.02]'
                           : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent hover:border-gray-200 hover:shadow-md'
                       }`}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <div className="h-8 w-8 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            <div className="h-8 w-8 bg-gradient-to-br from-blue-700 to-blue-800 rounded-full flex items-center justify-center text-white font-bold text-sm">
                               {(child.child?.full_name || child.child?.email || 'U')[0].toUpperCase()}
                             </div>
                             <div className="font-semibold text-gray-900">
                               {child.child?.full_name || child.child?.email || 'Unknown'}
                             </div>
                             {selectedChild?.id === child.id && (
-                              <span className="text-purple-600">✓</span>
+                              <span className="text-blue-800">✓</span>
                             )}
                           </div>
                           <div className="text-xs text-gray-600 mt-1 ml-10">
                             {child.child?.email}
                           </div>
                           {child.child?.simplified_mode && (
-                            <div className="text-xs text-purple-600 mt-2 ml-10 flex items-center gap-1">
+                            <div className="text-xs text-blue-800 mt-2 ml-10 flex items-center gap-1">
                               <span>✨</span>
                               <span>Simplified Mode: ON</span>
                             </div>
@@ -293,7 +293,7 @@ export default function CaregiverPage() {
             {selectedChild && childActivity ? (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-6 border border-gray-100">
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="h-12 w-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                  <div className="h-12 w-12 bg-gradient-to-br from-blue-800 to-blue-900 rounded-xl flex items-center justify-center">
                     <span className="text-2xl">📊</span>
                   </div>
                   <div>
@@ -319,8 +319,8 @@ export default function CaregiverPage() {
                       <span>Notes</span>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-5 border-2 border-purple-200 shadow-sm">
-                    <div className="text-3xl font-bold text-purple-600 mb-1">{childActivity.chat_sessions_count}</div>
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-5 border-2 border-blue-200 shadow-sm">
+                    <div className="text-3xl font-bold text-blue-800 mb-1">{childActivity.chat_sessions_count}</div>
                     <div className="text-sm font-semibold text-gray-700 flex items-center gap-1">
                       <span>💬</span>
                       <span>Chat Sessions</span>
@@ -353,7 +353,7 @@ export default function CaregiverPage() {
                       </div>
                     ) : (
                       childActivity.recent_activity.map((activity, idx) => (
-                        <div key={idx} className="bg-gradient-to-r from-white to-gray-50 rounded-xl p-4 border-2 border-gray-100 hover:border-purple-200 hover:shadow-md transition-all">
+                        <div key={idx} className="bg-gradient-to-r from-white to-gray-50 rounded-xl p-4 border-2 border-gray-100 hover:border-blue-200 hover:shadow-md transition-all">
                           <div className="text-sm font-semibold text-gray-900 mb-1">{activity.description}</div>
                           <div className="text-xs text-gray-500 flex items-center gap-1">
                             <span>🕒</span>
