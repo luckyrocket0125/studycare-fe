@@ -1066,7 +1066,7 @@ export default function StudentPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900">My Classes</h2>
-                    <p className="text-sm text-gray-600">Classes you are enrolled in</p>
+                    <p className="text-sm text-gray-600">Classes you're enrolled in</p>
                   </div>
                 </div>
                 <span className="bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-bold">
@@ -1373,7 +1373,7 @@ export default function StudentPage() {
                       >
                         <button
                           onClick={(e) => handleDeleteImage(image.id, e)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 z-10 shadow-lg"
+                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 z-10 shadow-lg"
                           title="Delete image"
                         >
                           <span className="text-xs">🗑️</span>
@@ -1768,7 +1768,7 @@ export default function StudentPage() {
                       <div className="text-center py-8">
                         <div className="text-4xl mb-2">📬</div>
                         <p className="text-gray-500 text-sm font-medium">No pending invitations</p>
-                        <p className="text-xs text-gray-400 mt-1">You will see invitations here when someone invites you to a pod</p>
+                        <p className="text-xs text-gray-400 mt-1">You'll see invitations here when someone invites you to a pod</p>
                       </div>
                     ) : (
                       invitations.map((invitation) => (
@@ -1879,7 +1879,7 @@ export default function StudentPage() {
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center">
                             <div className="text-5xl mb-3">🔒</div>
-                            <p className="text-gray-500 font-medium mb-2">You are not a member of this pod</p>
+                            <p className="text-gray-500 font-medium mb-2">You're not a member of this pod</p>
                             <p className="text-sm text-gray-400 mb-4">You need an invitation from the pod owner to join</p>
                           </div>
                         </div>
