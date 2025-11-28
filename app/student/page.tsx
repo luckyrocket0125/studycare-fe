@@ -1373,7 +1373,7 @@ export default function StudentPage() {
                       >
                         <button
                           onClick={(e) => handleDeleteImage(image.id, e)}
-                          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 z-10 shadow-lg"
+                          className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity absolute top-2 right-2 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 z-10 shadow-lg"
                           title="Delete image"
                         >
                           <span className="text-xs">🗑️</span>
