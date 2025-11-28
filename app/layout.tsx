@@ -17,6 +17,27 @@ export const metadata: Metadata = {
   description: "AI-powered study assistant for students, teachers, and caregivers",
   icons: {
     icon: '/logo.png',
+    apple: '/logo.png',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: 'cover',
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'StudyCare AI',
+  },
+  other: {
+    'format-detection': 'telephone=no',
+    'mobile-web-app-capable': 'yes',
   },
 };
 
