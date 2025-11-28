@@ -23,7 +23,7 @@ export default function StudentPage() {
   const [imageHistory, setImageHistory] = useState<ImageUpload[]>([]);
   const [selectedImage, setSelectedImage] = useState<ImageUpload | null>(null);
   const [imageQuestion, setImageQuestion] = useState('');
-  const [imageAnswer, setImageAnswer] = useState<string | null>(null);
+  const [imageQnA, setImageQnA] = useState<Array<{ question: string; answer: string; timestamp: string }>>([]);
   const [askingQuestion, setAskingQuestion] = useState(false);
   const [voiceSessionId, setVoiceSessionId] = useState<string | null>(null);
   const [voiceResponse, setVoiceResponse] = useState<VoiceChatResponse | null>(null);
@@ -279,7 +279,7 @@ export default function StudentPage() {
     setUploadingImage(true);
     setImageAnalysis(null);
     setSelectedImage(null);
-    setImageAnswer(null);
+    setImageQnA([]);
     setImageQuestion('');
     
     const formData = new FormData();
@@ -316,7 +316,7 @@ export default function StudentPage() {
       id: image.id,
       created_at: image.created_at,
     });
-    setImageAnswer(null);
+    setImageQnA([]);
     setImageQuestion('');
   };
 
@@ -325,16 +325,25 @@ export default function StudentPage() {
     const sessionId = selectedImage?.session_id || imageAnalysis?.sessionId;
     if (!imageQuestion.trim() || !sessionId || askingQuestion) return;
 
+    const questionText = imageQuestion.trim();
     setAskingQuestion(true);
     setError('');
+    setImageQuestion('');
 
-    const response = await imageApi.askQuestion(sessionId, imageQuestion);
+    const response = await imageApi.askQuestion(sessionId, questionText);
 
     if (response.success && response.data) {
-      setImageAnswer(response.data.answer);
-      setImageQuestion('');
+      setImageQnA((prev) => [
+        ...prev,
+        {
+          question: questionText,
+          answer: response.data!.answer,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
     } else {
       setError(response.error?.message || 'Failed to get answer');
+      setImageQuestion(questionText);
     }
 
     setAskingQuestion(false);
@@ -360,7 +369,7 @@ export default function StudentPage() {
       if (selectedImage?.id === imageToDelete) {
         setSelectedImage(null);
         setImageAnalysis(null);
-        setImageAnswer(null);
+        setImageQnA([]);
         setImageQuestion('');
       }
     } else {
@@ -1449,16 +1458,36 @@ export default function StudentPage() {
                         </div>
                       </div>
 
-                      {imageAnswer && (
-                        <div className="animate-fade-in">
+                      {imageQnA.length > 0 && (
+                        <div className="space-y-4">
                           <h4 className="font-bold text-lg text-gray-900 mb-3 flex items-center gap-2">
                             <span>💬</span>
-                            <span>Answer to Your Question</span>
+                            <span>Questions & Answers</span>
                           </h4>
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
-                            <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
-                              {imageAnswer}
-                            </p>
+                          <div className="space-y-4">
+                            {imageQnA.map((qa, index) => (
+                              <div key={index} className="space-y-2 animate-fade-in">
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl p-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-sm font-semibold text-gray-700">❓ Your Question:</span>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(qa.timestamp).toLocaleTimeString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
+                                    {qa.question}
+                                  </p>
+                                </div>
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-sm font-semibold text-gray-700">🤖 AI Answer:</span>
+                                  </div>
+                                  <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
+                                    {qa.answer}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
