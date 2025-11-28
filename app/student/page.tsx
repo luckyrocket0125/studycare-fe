@@ -322,12 +322,13 @@ export default function StudentPage() {
 
   const handleAskImageQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageQuestion.trim() || !selectedImage || askingQuestion) return;
+    const sessionId = selectedImage?.session_id || imageAnalysis?.sessionId;
+    if (!imageQuestion.trim() || !sessionId || askingQuestion) return;
 
     setAskingQuestion(true);
     setError('');
 
-    const response = await imageApi.askQuestion(selectedImage.session_id, imageQuestion);
+    const response = await imageApi.askQuestion(sessionId, imageQuestion);
 
     if (response.success && response.data) {
       setImageAnswer(response.data.answer);
